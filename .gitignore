@@ -1,0 +1,10 @@
+consumer/node_modules
+consumer/.env
+
+GUI/node_modules
+GUI/.env
+
+queue/node_modules
+queue/.env
+
+.DS_Store
