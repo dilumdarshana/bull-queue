@@ -1,9 +1,12 @@
 {
-  "name": "remove",
+  "name": "consumer",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
   "type": "module",
+  "scripts": {
+    "preinstall": "npx only-allow pnpm"
+  },
   "dependencies": {
     "bull": "^4.11.3",
     "dotenv": "^16.3.1"

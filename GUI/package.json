@@ -1,8 +1,11 @@
 {
-  "name": "GUI",
+  "name": "gui",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "scripts": {
+    "preinstall": "npx only-allow pnpm"
+  },
   "dependencies": {
     "@bull-board/api": "^5.8.1",
     "@bull-board/express": "^5.8.1",
