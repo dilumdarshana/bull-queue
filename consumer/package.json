@@ -5,10 +5,16 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "preinstall": "npx only-allow pnpm"
+    "preinstall": "npx only-allow pnpm",
+    "start": "tsx --no-deprecation src/index.ts"
   },
   "dependencies": {
     "bull": "^4.16.5",
     "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
   }
 }

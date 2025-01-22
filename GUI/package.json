@@ -4,7 +4,8 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "preinstall": "npx only-allow pnpm"
+    "preinstall": "npx only-allow pnpm",
+    "start": "node index.js"
   },
   "dependencies": {
     "@bull-board/api": "^5.8.1",
