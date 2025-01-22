@@ -3,11 +3,18 @@
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
+  "type": "module",
   "scripts": {
-    "preinstall": "npx only-allow pnpm"
+    "preinstall": "npx only-allow pnpm",
+    "start": "tsx index.ts --watch"
   },
   "dependencies": {
-    "bull": "^4.11.3",
-    "dotenv": "^16.3.1"
+    "bull": "^4.16.5",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
   }
 }

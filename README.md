@@ -1,4 +1,4 @@
-# NodeJS task queue using Bull
+# Redis based queue system for NodeJS
 
 ## Project consist of 3 folders
 1. Queue application
@@ -10,6 +10,9 @@
 
 ## Redis Docker container
 `docker run -p 6379:6379 --name redis -d redis redis-server --appendonly yes --requirepass 123456`
+
+## Log into Redis
+`redis-cli -a 123456`
 
 ## Run Queue app
 `node index.js`

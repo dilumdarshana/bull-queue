@@ -16,19 +16,19 @@ try {
 
   // Register process
   orderQueue.process(async (payload, done) => {
-    payload.log('Order Initialized');
+    const { order_id: orderId } = payload.data;
     payload.progress(30);
-    console.log('Order Initialized');
+    console.log('Order Initialized', orderId);
     await sleep(5000);
 
-    payload.log('Payment Completed');
+    payload.log('Payment Completed', orderId);
     payload.progress(60);
-    console.log('Payment Completed');
+    console.log('Payment Completed', orderId);
     await sleep(5000);
 
-    payload.log('Order Placed');
+    payload.log('Order Placed', orderId);
     payload.progress(100);
-    console.log('Order Placed');
+    console.log('Order Placed', orderId);
 
     done();
   });
