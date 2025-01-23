@@ -1,4 +1,4 @@
-# Redis based queue system for NodeJS
+# Redis based queue system for NodeJS (V3.X)
 
 ## Project consist of 3 folders
 1. Queue application
@@ -6,7 +6,7 @@
 3. Bull Visualizer (GUI)
 
 ## Documentation
-`https://github.com/OptimalBits/bull`
+[Link](https://github.com/OptimalBits/bull)
 
 ## Redis Docker container
 `docker run -p 6379:6379 --name redis -d redis redis-server --appendonly yes --requirepass 123456`
@@ -15,10 +15,10 @@
 `redis-cli -a 123456`
 
 ## Run Queue app
-`node index.js`
+`pnpm start`
 
 ## Run consumer
-`node index.js`
+`pnpm start`
 
 ## Run GUI
-`node index.js`
+`pnpm start`
