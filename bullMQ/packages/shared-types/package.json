@@ -8,8 +8,5 @@
   "license": "ISC",
   "scripts": {
     "build": "tsup --clean index.ts --dts"
-  },
-  "devDependencies": {
-    "tsup": "^8.3.5"
   }
 }

@@ -1,6 +1,12 @@
 {
   "name": "bullmq",
+  "description": "BullMQ in Monorepo concept",
+  "author": "Dilum Darshana <dilum.dar@gmail.com>",
   "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
@@ -10,13 +16,10 @@
   },
   "devDependencies": {
     "prettier": "^3.2.5",
+    "tsup": "^8.3.5",
     "tsx": "^4.19.2",
     "turbo": "^2.3.3",
     "typescript": "5.5.4"
-  },
-  "packageManager": "pnpm@9.0.0",
-  "engines": {
-    "node": ">=18"
   },
   "dependencies": {
     "bullmq": "^5.35.1"

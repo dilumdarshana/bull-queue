@@ -7,7 +7,8 @@
   "license": "ISC",
   "main": "index.js",
   "scripts": {
-    "start": "tsx watch src/index.ts"
+    "start": "tsx watch src/index.ts",
+    "build": "tsup --clean src/index.ts"
   },
   "dependencies": {
     "@bull-board/api": "^6.7.1",

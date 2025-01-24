@@ -7,13 +7,12 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "build": "tsup --clean index.ts"
+    "build": "tsup --clean index.ts --dts"
   },
   "dependencies": {
     "dotenv": "^16.4.7"
   },
   "devDependencies": {
-    "@types/node": "^22.10.9",
-    "tsup": "^8.3.5"
+    "@types/node": "^22.10.9"
   }
 }
