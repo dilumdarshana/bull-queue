@@ -1,10 +1,13 @@
-consumer/node_modules
-consumer/.env
+bull/consumer/node_modules
+bull/consumer/.env
 
-GUI/node_modules
-GUI/.env
+bull/GUI/node_modules
+bull/GUI/.env
 
-queue/node_modules
-queue/.env
+bull/queue/node_modules
+bull/queue/.env
 
 .DS_Store
+
+bullMQ/node_modules
+
