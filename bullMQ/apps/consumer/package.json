@@ -1,0 +1,17 @@
+{
+  "name": "consumer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "start": "tsx watch src/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@bull/config": "workspace:*",
+    "@bull/shared-types": "workspace:*"
+  }
+}

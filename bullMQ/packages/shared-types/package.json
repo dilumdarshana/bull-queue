@@ -2,12 +2,12 @@
   "name": "@bull/shared-types",
   "version": "1.0.0",
   "description": "",
-  "main": "index.ts",
+  "main": "dist/index.js",
   "keywords": [],
   "author": "",
   "license": "ISC",
   "scripts": {
-    "build": "tsup --clean index.ts"
+    "build": "tsup --clean index.ts --dts"
   },
   "devDependencies": {
     "tsup": "^8.3.5",

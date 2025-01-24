@@ -25,6 +25,12 @@ importers:
         specifier: 5.5.4
         version: 5.5.4
 
+  apps/consumer:
+    dependencies:
+      '@bull/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+
   apps/dashboard:
     dependencies:
       '@bull-board/api':
