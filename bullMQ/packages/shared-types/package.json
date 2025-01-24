@@ -10,7 +10,6 @@
     "build": "tsup --clean index.ts --dts"
   },
   "devDependencies": {
-    "tsup": "^8.3.5",
-    "typescript": "5.5.4"
+    "tsup": "^8.3.5"
   }
 }

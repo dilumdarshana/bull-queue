@@ -5,6 +5,15 @@
 2. Consumer
 3. Dashboard (GUI)
 
+## How to run the application
+```bash
+git clone https://github.com/dilumdarshana/bull-queue.git
+
+cd bull-queue
+
+pnpm install
+```
+
 ## Add dependencies to each workspace
 ```bash
 # add to workspace root

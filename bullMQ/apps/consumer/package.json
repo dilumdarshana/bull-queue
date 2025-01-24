@@ -12,6 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "@bull/config": "workspace:*",
-    "@bull/shared-types": "workspace:*"
+    "@bull/shared-types": "workspace:*",
+    "bullmq": "workspace:*"
   }
 }

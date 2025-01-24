@@ -6,9 +6,7 @@ export interface EnvironmentType {
 }
 
 export interface ConnectionOptionType {
-  redis: {
-    host: string;
-    port: number;
-    password?: string;
-  }
+  host: string;
+  port: number;
+  password?: string;
 }

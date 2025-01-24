@@ -15,7 +15,7 @@ if (!REDIS_HOST ||!REDIS_PORT ||!REDIS_PASSWORD ||!QUEUE_NAME) {
 
 const connection: ConnectionOptionType = {
   host: REDIS_HOST,
-  port: REDIS_PORT,
+  port: parseInt(REDIS_PORT, 10),
   password: REDIS_PASSWORD
 };
 
