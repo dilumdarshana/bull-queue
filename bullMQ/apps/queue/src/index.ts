@@ -35,5 +35,6 @@ export const addJobToQueue = async (data: { task: string; order_id: number; user
 };
 
 (async () => {
-  await addJobToQueue({ task: 'job', order_id: 1, user_id: 100, amount: 100 });
+  // await addJobToQueue({ task: 'job', order_id: 1, user_id: 100, amount: 100 });
+  setInterval(() => addJobToQueue({ task: 'job', order_id: Math.floor(Math.random() * 1000), user_id: 100, amount: 100 }), 2000);
 })();

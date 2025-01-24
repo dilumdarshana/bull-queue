@@ -18,6 +18,12 @@ pnpm add -D typescript --filter <workspace name>
 pnpm remove -D typescript --filter <workspace name>
 ```
 
+## Install app workspace modules from root
+```bash
+#eg: pnpm install --filter dashboard
+pnpm install --filter <workspace name>
+```
+
 ## Check root workspace has same npm inside app workspace
 ```bash
 pnpm dlx syncpack list-mismatches --filter=typescript

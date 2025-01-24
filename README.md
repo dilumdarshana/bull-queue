@@ -1,24 +1,15 @@
-# Redis based queue system for NodeJS (V3.X)
+# Redis based queue system for NodeJS
 
-## Project consist of 3 folders
-1. Queue application
-2. Consumer
-3. Bull Visualizer (GUI)
+## bull - the old way of use queue with Bull
+- Express
+- Redis
+- pnpm
+- Docker
 
-## Documentation
-[Link](https://github.com/OptimalBits/bull)
+## bullMQ - the new way of use queue with BullMQ
+- Express
+- Monorepo (Turborepo)
+- pnpm
+- Docker
 
-## Redis Docker container
-`docker run -p 6379:6379 --name redis -d redis redis-server --appendonly yes --requirepass 123456`
-
-## Log into Redis
-`redis-cli -a 123456`
-
-## Run Queue app
-`pnpm start`
-
-## Run consumer
-`pnpm start`
-
-## Run GUI
-`pnpm start`
+Note: look for each folder README.md for more information
