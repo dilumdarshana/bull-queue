@@ -1,0 +1,16 @@
+{
+  "name": "@bull/shared-types",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "build": "tsup --clean index.ts"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "5.5.4"
+  }
+}
