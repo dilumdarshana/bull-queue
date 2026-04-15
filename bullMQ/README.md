@@ -9,9 +9,14 @@
 ```bash
 git clone https://github.com/dilumdarshana/bull-queue.git
 
-cd bull-queue
+# Switch to latest approach
+$ cd bullMQ
 
-pnpm install
+# Install dependencies
+$ pnpm install
+
+# Run
+$ 
 ```
 
 ## Add dependencies to each workspace

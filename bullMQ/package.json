@@ -15,13 +15,13 @@
     "start": "turbo start"
   },
   "devDependencies": {
-    "prettier": "^3.2.5",
+    "prettier": "^3.8.3",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",
-    "turbo": "^2.3.3",
-    "typescript": "5.5.4"
+    "turbo": "^2.9.6",
+    "typescript": "6.0.2"
   },
   "dependencies": {
-    "bullmq": "^5.35.1"
+    "bullmq": "^5.74.1"
   }
 }
