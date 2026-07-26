@@ -9,5 +9,10 @@ bull/queue/.env
 
 .DS_Store
 
+# BullMQ monorepo
 bullMQ/node_modules
+bullMQ/apps/*/.env
+bullMQ/apps/*/dist
+bullMQ/packages/*/dist
+bullMQ/.turbo
 

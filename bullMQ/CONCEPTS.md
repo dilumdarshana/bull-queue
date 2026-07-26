@@ -14,6 +14,9 @@ BullMQ is a Redis-based distributed job queue library for Node.js. It is the suc
 - [FlowProducer](#flowproducer)
 - [Job Scheduler (Repeatable Jobs)](#job-scheduler-repeatable-jobs)
 - [Connections](#connections)
+- [Redis Cluster](#redis-cluster)
+- [Going to Production](#going-to-production)
+- [Telemetry](#telemetry)
 - [Job Types](#job-types)
   - [FIFO (First-In, First-Out)](#fifo-first-in-first-out)
   - [LIFO (Last-In, First-Out)](#lifo-last-in-first-out)
@@ -26,6 +29,13 @@ BullMQ is a Redis-based distributed job queue library for Node.js. It is the suc
 - [Events](#events)
 - [Metrics](#metrics)
 - [Auto-Removal of Jobs](#auto-removal-of-jobs)
+- [Job IDs](#job-ids)
+- [Returning Job Data](#returning-job-data)
+- [Removing Jobs](#removing-jobs)
+- [Getters](#getters)
+- [Redis Cluster](#redis-cluster)
+- [Going to Production](#going-to-production)
+- [Telemetry](#telemetry)
 - [BullMQ vs Bull](#bullmq-vs-bull)
 
 ---
@@ -76,7 +86,46 @@ BullMQ is built entirely on Redis using atomic Lua scripts and data structures (
 
 - **Polling-free**: Workers use Redis blocking list commands (`BLPOP`-style) to wait for jobs without consuming CPU.
 - **Atomic operations**: Lua scripts ensure that multi-key operations are atomic.
-- **Exactly-once semantics**: Best-effort exactly-once delivery; at-least-once in worst-case scenarios (e.g., worker crashes after processing but before acknowledging).
+
+### Delivery Semantics: At-Least-Once
+
+BullMQ guarantees **at-least-once** delivery — a job will always be processed at least once, but may occasionally be processed more than once in failure scenarios.
+
+#### Why double processing can happen
+
+**1. Worker crash (stalled job)**
+A worker picks up a job, starts processing, then crashes. BullMQ detects this after `stalledInterval` (default 30s) and re-queues the job for another worker. If the original worker had partially completed the work, the job runs again.
+
+```
+Worker A grabs job → starts processing → crashes → 30s stall timeout
+    → BullMQ re-queues → Worker B processes the same job again
+```
+
+**2. Lock expiry (event loop blocked)**
+Each active job holds a Redis lock (default 30s duration). The worker auto-extends the lock while processing. If the event loop is too busy (CPU-heavy work, high concurrency), the lock may not be extended in time, making the job available to another worker.
+
+#### Mitigation: Idempotency
+
+Design job processors to be **idempotent** — running the same job twice should produce the same result.
+
+```typescript
+const worker = new Worker('orders', async (job) => {
+  // Check if this order was already processed
+  const existing = await db.orders.findUnique(job.data.orderId);
+  if (existing?.processed) {
+    return { skipped: true }; // Already done, nothing to do
+  }
+
+  await chargeCustomer(job.data.orderId);
+  await sendConfirmation(job.data.orderId);
+});
+```
+
+Other strategies:
+- Use **transactions** (e.g. wrap processing in a DB transaction with upsert)
+- Use **deduplication** for preventing duplicate job adds
+- Use **`removeOnComplete`** to keep job history for audit
+- For long-running jobs, increase `lockDuration` or use **sandboxed processors**
 
 ---
 
@@ -406,6 +455,167 @@ const connection = createNodeRedisClient(rawClient);
 
 ---
 
+## Redis Cluster
+
+BullMQ supports Redis Cluster, but there are important considerations.
+
+### Setup
+
+```typescript
+import IORedis from 'ioredis';
+
+const connection = new IORedis.Cluster(
+  [
+    { host: 'redis-node-1', port: 6379 },
+    { host: 'redis-node-2', port: 6379 },
+    { host: 'redis-node-3', port: 6379 },
+  ],
+  {
+    maxRetriesPerRequest: null,
+    enableReadyCheck: false,
+  },
+);
+
+const queue = new Queue('my-queue', { connection });
+const worker = new Worker('my-queue', processor, { connection });
+```
+
+### Key Considerations
+
+- **Hash tags**: BullMQ uses Redis hash tags (`{queuename}`) to ensure all keys for a queue live on the same cluster node. This is critical for multi-key Lua script atomicity.
+- **`maxRetriesPerRequest: null`** is required for workers to keep retrying on cluster failover.
+- **Not all commands are cluster-compatible**: Some advanced features may have limitations in cluster mode.
+- **Performance**: Cluster mode adds latency due to node-to-node communication overhead.
+
+### When to Use Redis Cluster
+
+- You need more memory than a single Redis instance can provide
+- You need higher write throughput than a single instance can handle
+- You need high availability with automatic failover
+
+For most applications, a single Redis instance with replication (sentinel) is sufficient.
+
+---
+
+## Going to Production
+
+### Redis Configuration
+
+```bash
+# Required for BullMQ
+maxmemory-policy=noeviction
+
+# Recommended for production
+save 900 1       # RDB persistence
+save 300 10
+save 60 10000
+appendonly yes   # AOF persistence (stronger durability)
+```
+
+### Environment Variables
+
+Use a dedicated Redis instance or service for BullMQ. Separate your queue data from application cache data by using different Redis databases or instances.
+
+### Worker Configuration Best Practices
+
+```typescript
+const worker = new Worker('queue', processor, {
+  concurrency: 10,              // Tune based on workload
+  lockDuration: 30000,          // Default 30s — increase for long jobs
+  stalledInterval: 30000,       // How often to check stalled jobs
+  maxStalledCount: 2,           // Max times a job can be stalled before failing
+
+  settings: {
+    backoffStrategy: (attempts) => Math.min(attempts * 1000, 30000),
+  },
+});
+
+// Always attach error handlers
+worker.on('error', (err) => {
+  console.error('Worker Redis error:', err);
+});
+```
+
+### Monitoring
+
+- Use **Bull Board** (dashboard) to inspect queues visually
+- Enable **metrics** on workers for historical performance data
+- Set up alerts on queue depth (too many waiting jobs = problem)
+- Monitor **failed jobs** and set up Dead Letter processing
+
+### Graceful Shutdown
+
+Always handle process termination to avoid stalled jobs:
+
+```typescript
+async function shutdown() {
+  await worker.close();   // Wait for active jobs to finish (respects lockDuration)
+  await queue.close();    // Close queue connections
+  process.exit(0);
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
+```
+
+### Memory Management
+
+- Use `removeOnComplete` / `removeOnFail` to prevent unbounded growth
+- Monitor Redis memory usage
+- Set up `clean()` jobs to periodically purge old data
+- Use job schedulers with care — ensure they don't produce jobs faster than workers can consume
+
+---
+
+## Telemetry
+
+BullMQ supports **OpenTelemetry** integration for distributed tracing and metrics.
+
+### Enable Telemetry
+
+```typescript
+import { Telemetry } from 'bullmq';
+import { DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { SimpleSpanProcessor } from '@opentelemetry/sdk-trace-base';
+import { NodeTracerProvider } from '@opentelemetry/sdk-trace-node';
+
+// Set up OpenTelemetry
+const provider = new NodeTracerProvider();
+provider.addSpanProcessor(
+  new SimpleSpanProcessor(new OTLPTraceExporter()),
+);
+provider.register();
+
+// Enable BullMQ telemetry
+Telemetry.init({
+  tracer: provider.getTracer('bullmq'),
+  instrumentations: {
+    queue: true,
+    worker: true,
+  },
+});
+```
+
+### What Gets Traced
+
+- **Queue operations**: `add`, `addBulk`, `getJob`, etc.
+- **Worker operations**: processing jobs, move to completed/failed
+- **Flow operations**: adding flows, parent-child resolution
+
+Each trace includes span attributes like queue name, job ID, and job state transitions.
+
+### Metrics
+
+Telemetry also exposes metrics counters for:
+- Jobs completed / failed per queue
+- Processing duration
+- Queue depth (waiting jobs)
+
+See the [BullMQ Telemetry docs](https://docs.bullmq.io/guide/telemetry) for detailed setup instructions with Jaeger, Prometheus, and other backends.
+
+---
+
 ## Job Types
 
 ### FIFO (First-In, First-Out)
@@ -418,10 +628,19 @@ await queue.add('task', data);
 
 ### LIFO (Last-In, First-Out)
 
-The most recently added job is processed first.
+The most recently added job is processed first — like a stack. Useful when newer jobs are more relevant than older ones (e.g. updating cache with latest data, processing the most recent user action).
 
 ```typescript
 await queue.add('task', data, { lifo: true });
+```
+
+LIFO and FIFO jobs live in the same Redis list. LIFO jobs are added to the **head** of the list via `LPUSH`, while FIFO jobs use `RPUSH`. Workers always pick from the head, so LIFO jobs are picked before older FIFO jobs.
+
+**Mixing FIFO and LIFO in the same queue:**
+```typescript
+await queue.add('fifo-task', data);                    // RPUSH → processed after all LIFO
+await queue.add('lifo-task', data, { lifo: true });    // LPUSH → processed first
+await queue.add('another-fifo', data);                 // RPUSH → processed last
 ```
 
 ### Delayed Jobs
@@ -493,7 +712,205 @@ await job.changePriority({ lifo: true });     // switch to LIFO within its prior
 
 ---
 
-## Deduplication
+## Job IDs
+
+Every job in BullMQ has a unique ID. You can let BullMQ auto-generate it or provide your own.
+
+### Auto-Generated IDs
+
+By default, BullMQ generates a job ID using a combination of a **incrementing counter** and the **queue name**. The format is typically an integer string like `"1"`, `"2"`, etc. These IDs are unique within a queue.
+
+### Custom Job IDs
+
+You can provide your own ID when adding a job:
+
+```typescript
+await queue.add('task', data, { jobId: 'my-custom-id-123' });
+```
+
+This is useful for **idempotency** — if you try to add a job with an existing ID, BullMQ will reject it (no duplicate created). Combined with `removeOnComplete`, this can act as a simple deduplication mechanism.
+
+```typescript
+// Will only create one job — subsequent calls with same jobId are ignored
+await queue.add('process-order', data, { jobId: `order-${orderId}` });
+await queue.add('process-order', data, { jobId: `order-${orderId}` }); // ignored
+```
+
+### Job ID Constraints
+
+- IDs must be strings
+- Avoid colons (`:`) in custom IDs — BullMQ uses them as internal separators in Redis keys
+- When using `FlowProducer`, parent-child relationships use job IDs internally
+
+---
+
+## Returning Job Data
+
+The return value of the worker's processor function is stored as `job.returnvalue`. This is useful for passing results back to parent jobs or for auditing.
+
+```typescript
+const worker = new Worker('orders', async (job) => {
+  const result = await processOrder(job.data.orderId);
+  return { status: 'completed', total: result.amount };
+});
+
+// Access the return value:
+// 1. Via completed event
+worker.on('completed', (job, returnvalue) => {
+  console.log(job.returnvalue); // { status: 'completed', total: 99.99 }
+});
+
+// 2. By fetching the job later
+const job = await queue.getJob(jobId);
+console.log(job.returnvalue);
+
+// 3. From parent job via FlowProducer
+const parentJob = await queue.getJob(parentId);
+const childrenValues = await parentJob.getChildrenValues();
+// childrenValues contains { [childJobKey]: childReturnValue }
+```
+
+### What can be returned
+
+- Any JSON-serializable value (object, array, string, number)
+- Used by `FlowProducer` to pass child results to parent jobs
+- Visible in Bull Board dashboard
+- Stored in Redis until removed by auto-removal policies
+
+---
+
+## Removing Jobs
+
+BullMQ provides several ways to remove jobs from a queue.
+
+### Remove a Single Job
+
+```typescript
+const job = await queue.getJob(jobId);
+await job.remove();
+```
+
+### Remove from Queue by ID
+
+```typescript
+await queue.remove(jobId);
+```
+
+### Remove Jobs by State
+
+```typescript
+// Remove all failed jobs
+await queue.drain({ type: 'failed' });
+
+// Remove all completed jobs older than 24 hours
+await queue.clean(86400000, 1000, 'completed');
+// clean(gracePeriodMs, limit, type)
+```
+
+### Cascading Removal in Flows
+
+When removing a job that is part of a FlowProducer tree:
+
+1. If a **parent** is removed, all its **children** are also removed
+2. If a **child** is removed, its dependency link to the parent is removed
+3. If the removed child was the last dependency, the parent becomes eligible for processing
+4. If any job being removed is currently **locked** (being processed), the removal fails
+
+```typescript
+// This removes all jobs in the tree
+await job.remove();
+```
+
+### Drain a Queue
+
+Completely empties a queue of all waiting/active jobs (does not affect completed/failed):
+
+```typescript
+await queue.drain();
+```
+
+### Obliterate a Queue
+
+Completely removes the queue and all its data from Redis:
+
+```typescript
+await queue.obliterate({ force: true });
+// force: true — bypasses any safety checks
+```
+
+---
+
+## Getters
+
+BullMQ provides rich APIs for fetching jobs by state, ID, or custom criteria.
+
+### Get a Single Job
+
+```typescript
+const job = await queue.getJob(jobId);
+```
+
+### Get Jobs by State
+
+```typescript
+const active = await queue.getActive();         // currently processing
+const waiting = await queue.getWaiting();        // waiting to be processed
+const delayed = await queue.getDelayed();        // delayed jobs
+const completed = await queue.getCompleted();    // completed jobs
+const failed = await queue.getFailed();          // failed jobs
+const prioritized = await queue.getPrioritized(); // prioritized jobs
+```
+
+### Get Jobs by Multiple States
+
+```typescript
+const jobs = await queue.getJobs(['active', 'waiting', 'delayed']);
+```
+
+### Get Job Counts
+
+```typescript
+const counts = await queue.getJobCounts();
+// { wait: 5, active: 2, completed: 100, failed: 3, delayed: 1 }
+```
+
+### Get Job Counts Per Priority
+
+```typescript
+const counts = await queue.getCountsPerPriority([1, 5, 10]);
+// { '1': 3, '5': 7, '10': 0 }
+```
+
+### Get Job Logs
+
+```typescript
+const logs = await job.getLogs();         // get all logs
+const logs = await job.getLogs(0, 10);    // paginated (start, end)
+await job.log('Custom log entry');        // add a log entry
+```
+
+### Pagination for Large Queues
+
+Most getter methods support pagination using `start` and `end` parameters (0-indexed):
+
+```typescript
+const first10 = await queue.getCompleted(0, 9);
+const next10 = await queue.getCompleted(10, 19);
+```
+
+### Flow-Related Getters
+
+```typescript
+await job.getChildrenValues();        // get return values from child jobs
+await job.getDependencies();          // get all child jobs
+await job.getDependencies({           // get specific types
+  processed: { count: 5, cursor: 0 },
+  failed: { count: 5, cursor: 0 },
+});
+await job.getDependenciesCount();     // get counts of child jobs by state
+```
+
+---
 
 Deduplication prevents duplicate jobs from being added within a given time window.
 
@@ -829,6 +1246,119 @@ process.on('SIGTERM', async () => {
   await worker.close();  // wait for active jobs to finish
 });
 ```
+
+---
+
+## Batching
+
+BullMQ offers several ways to handle jobs in batches, depending on whether you want to add or process jobs in bulk.
+
+### Adding Jobs in Bulk (Producer Side)
+
+Use `addBulk` to atomically add multiple jobs to a queue. Workers still receive and process them **one by one**.
+
+```typescript
+await queue.addBulk([
+  { name: 'order', data: { orderId: 1, amount: 50 } },
+  { name: 'order', data: { orderId: 2, amount: 75 } },
+  { name: 'order', data: { orderId: 3, amount: 100 } },
+]);
+// Worker processes each job individually
+```
+
+This is more efficient than calling `queue.add()` in a loop — it uses a single Redis transaction.
+
+### Processing Jobs in a Batch (Worker Side)
+
+BullMQ open-source does **not** have a native batch processor. To process work in batches, design your producer to group items into a single job:
+
+```typescript
+// Producer — batch items into one job
+await queue.add('batch-process', {
+  batchId: 'batch-001',
+  items: [
+    { id: 1, type: 'email' },
+    { id: 2, type: 'email' },
+    { id: 3, type: 'email' },
+  ],
+});
+
+// Worker — process all items in one processor call
+const worker = new Worker('queue', async (job) => {
+  if (job.name === 'batch-process') {
+    const results = await Promise.allSettled(
+      job.data.items.map((item) => processItem(item))
+    );
+    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    console.log(`Batch ${job.data.batchId}: ${succeeded} ok, ${failed} failed`);
+    return { succeeded, failed };
+  }
+});
+```
+
+### Using Concurrency for "Logical Batching"
+
+If you set `concurrency: 10`, a single worker processes up to 10 jobs simultaneously. This gives you aggregate throughput similar to batching, but each job remains individually tracked:
+
+```typescript
+const worker = new Worker('queue', processor, {
+  concurrency: 10,  // 10 jobs processed in parallel
+});
+```
+
+### When to use each approach
+
+| Approach | Best For | Trade-off |
+|----------|----------|-----------|
+| `addBulk` + individual processing | Independent jobs that need individual retries | More Redis operations |
+| Grouped single job | Related work that should succeed/fail together | Single point of failure for the batch |
+| `concurrency: N` | I/O-bound work at high throughput | No atomic batch semantics |
+| BullMQ Pro `batches` | Native batch processing with Redis optimization | Paid feature |
+
+### BullMQ Pro Batches
+
+BullMQ Pro (paid) provides a native `batches` feature where workers receive multiple jobs in a single processor call, reducing Redis round-trips. See [BullMQ Pro documentation](https://docs.bullmq.io/bullmq-pro/batches) for details.
+
+---
+
+## BullMQ vs Amazon SQS
+
+BullMQ and AWS SQS are both queue systems but target different use cases. Here's a feature comparison:
+
+| Feature | BullMQ | AWS SQS |
+|---------|--------|---------|
+| **Backend** | Redis | AWS-managed |
+| **Pricing** | Free (Redis cost only) | Pay per request |
+| **Latency** | Sub-millisecond | 10-100ms typical |
+| **Visibility Timeout** | `lockDuration` (auto-extending) | `VisibilityTimeout` (fixed, no auto-extend) |
+| **Max Visibility Timeout** | Unlimited (auto-extends) | 12 hours (fixed) |
+| **Job Size Limit** | Redis limit (~512MB) | 256KB (max) |
+| **Message Retention** | Unlimited (Redis memory) | 14 days max |
+| **Retries** | `attempts` + `backoff` (fixed, exponential, custom) | Redrive policy + DLQ |
+| **Scheduling / Delayed** | Native (`delay`, cron via `upsertJobScheduler`) | Delay queue (up to 15 min) |
+| **Priorities** | Yes (0 to 2,097,151) | No |
+| **Batch Operations** | `addBulk`, `addBulk` flows | `SendMessageBatch` (10 msg max) |
+| **FIFO Queues** | Yes (via `removeOnComplete` + polling) | FIFO queues (300 msg/s) |
+| **Dead Letter Queue** | Failed job set (built-in) | Separate DLQ (required) |
+| **Progress Tracking** | `job.updateProgress()` | No |
+| **Parent-Child Dependencies** | Yes (`FlowProducer`) | No |
+| **Rate Limiting** | Global per-queue | No |
+| **Metrics** | Built-in (per-minute) | CloudWatch metrics |
+| **Events / Notifications** | `QueueEvents` (Redis streams) | SQS polling + SNS + Lambda triggers |
+| **Guarantee** | At-least-once | At-least-once (standard) / Exactly-once (FIFO) |
+| **Ordering** | FIFO + priority + delayed | Best-effort (standard) / Strict FIFO |
+| **Max Message Size** | ~512MB | 256KB |
+| **Polling** | Blocking (no CPU usage) | Long polling (HTTP request-based) |
+| **Reliability** | Depends on Redis HA | AWS-managed, multi-AZ |
+| **Language Support** | Multi (Node, Python, Rust, Elixir, PHP) | Any (HTTP API) |
+| **Local Dev** | Docker Redis | LocalStack or AWS account |
+
+### When to use which
+
+**Choose BullMQ when:** you need rich job features (retries, priorities, flows, scheduling), low latency, want to run locally without cloud costs, or need control over your infrastructure.
+
+**Choose SQS when:** you need fully-managed infinite scalability, don't want to operate Redis, or are already deep in AWS ecosystem and need simple message passing between services.
 
 ---
 
