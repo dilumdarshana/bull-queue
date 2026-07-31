@@ -11,3 +11,14 @@ updates:
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
+  - package-ecosystem: "npm"
+    directory: "/bullMQ6"
+    schedule:
+      interval: "weekly"
+    groups:
+      root-deps:
+        patterns:
+          - "*"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"

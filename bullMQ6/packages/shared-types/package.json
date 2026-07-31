@@ -1,0 +1,12 @@
+{
+  "name": "@bull/shared-types",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "build": "tsup --clean index.ts --dts"
+  }
+}

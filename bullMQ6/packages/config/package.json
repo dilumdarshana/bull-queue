@@ -1,0 +1,18 @@
+{
+  "name": "@bull/config",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.ts",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "scripts": {
+    "build": "tsup --clean index.ts --dts"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1"
+  }
+}

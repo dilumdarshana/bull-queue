@@ -1,0 +1,23 @@
+{
+  "name": "dashboard",
+  "version": "1.0.0",
+  "description": "Bull Monitoring",
+  "keywords": [],
+  "author": "Dilum Darshana <dilum.dar@gmail.com>",
+  "license": "ISC",
+  "main": "index.js",
+  "scripts": {
+    "start": "tsx watch src/index.ts",
+    "build": "tsup --clean src/index.ts"
+  },
+  "dependencies": {
+    "@bull-board/api": "^8.4.0",
+    "@bull-board/express": "^8.4.0",
+    "@bull/config": "workspace:*",
+    "@bull/shared-types": "workspace:*",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6"
+  }
+}

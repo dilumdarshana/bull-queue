@@ -16,3 +16,10 @@ bullMQ/apps/*/dist
 bullMQ/packages/*/dist
 bullMQ/.turbo
 
+# BullMQ6 monorepo
+bullMQ6/node_modules
+bullMQ6/apps/*/.env
+bullMQ6/apps/*/dist
+bullMQ6/packages/*/dist
+bullMQ6/.turbo
+

@@ -1,0 +1,37 @@
+{
+  "name": "bullmq",
+  "description": "BullMQ in Monorepo concept",
+  "author": "Dilum Darshana <dilum.dar@gmail.com>",
+  "private": true,
+  "packageManager": "pnpm@11.11.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo start",
+    "lint": "turbo lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "start": "turbo start",
+    "docker:redis": "docker compose up -d redis",
+    "docker:redis:stop": "docker compose down"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.1",
+    "turbo": "^2.10.7",
+    "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "bullmq": "^6.0.0",
+    "ioredis": "^5.11.1"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "bullmq": ">=6"
+      }
+    }
+  }
+}
