@@ -32,7 +32,7 @@ const {
  * Validate required environment variables before attempting to connect.
  * Fails fast with a clear message rather than obscure Redis errors.
  */
-if (!REDIS_HOST ||!REDIS_PORT ||!REDIS_PASSWORD ||!QUEUE_NAME) {
+if (!REDIS_HOST || !REDIS_PORT || !REDIS_PASSWORD || !QUEUE_NAME) {
   throw new Error('Missing required environment variable');
 }
 
@@ -111,7 +111,10 @@ const worker = new Worker(
       console.log('Repeating job executed.');
     }
   },
-  { connection },
+  {
+    connection,
+    concurrency: 2,
+  },
 
   /**
    * Additional worker options (commented for reference):
@@ -196,3 +199,123 @@ worker.on('failed', (job, err) => {
  *     process.exit(0);
  *   });
  */
+
+/**
+ * ---------------------------------------------------------------------------
+ * More Consumer Examples (reference)
+ * ---------------------------------------------------------------------------
+ *
+ * Mirror of the reference block in apps/queue/src/index.ts. Each block is
+ * self-contained and commented out so nothing runs until you uncomment it.
+ * Any job name you publish from the queue side must have a matching handler
+ * here (see queue-side block 2 for the other job names).
+ */
+
+/**
+ * 1. Extensible handler map (replaces the if/else chain above).
+ *
+ * Dispatch on job.name via a Record so adding a new event type only means
+ * adding one entry — no growing if/else ladder.
+ */
+
+// import { Worker, Job, UnrecoverableError } from 'bullmq';
+//
+// const handlers: Record<string, (job: Job) => Promise<unknown>> = {
+//   orderJob: async (job) => {
+//     const { order_id } = job.data as { order_id: number };
+//     console.log('Order processing started:', order_id);
+//     await new Promise((resolve) => setTimeout(resolve, 3000));
+//     console.log('Job processed', order_id);
+//   },
+//   emailJob: async (job) => {
+//     const { to, subject } = job.data as { to: string; subject: string };
+//     console.log(`Sending "${subject}" to ${to}...`);
+//     await new Promise((resolve) => setTimeout(resolve, 1000));
+//     console.log('Email sent');
+//   },
+//   reportJob: async (job) => {
+//     const { period } = job.data as { period: 'daily' | 'weekly' };
+//     console.log(`Generating ${period} report...`);
+//     await new Promise((resolve) => setTimeout(resolve, 2000));
+//     console.log('Report ready');
+//   },
+//   repeatingJob: async (job) => {
+//     console.log('Repeating job executed.');
+//   },
+// };
+//
+// const processor = async (job: Job) => {
+//   const handler = handlers[job.name];
+//   if (!handler) {
+//     console.warn(`No handler for job type "${job.name}"`);
+//     return;
+//   }
+//   await handler(job);
+// };
+//
+// const worker = new Worker(QUEUE_NAME, processor, { connection });
+
+/**
+ * 2. Job methods available inside the processor.
+ *
+ * The processor signature is (job, token, signal):
+ *   - token:  unique lock token for this job (needed by moveToFailed)
+ *   - signal: AbortSignal that fires if the job is cancelled while processing
+ */
+
+// await job.updateProgress(50);                          // report progress (Bull Board + 'progress' event)
+// await job.updateData({ ...job.data, note: 'updated' }); // replace the job payload in place
+// await job.log('processing step 1');                    // append a line to the job's log
+// const state = await job.getState();                    // e.g. 'active' | 'delayed' | 'completed' | 'failed'
+// const attempts = job.attemptsMade;                     // attempts so far (0 on first run)
+// return { status: 'completed', orderId };               // return value → job.returnvalue
+
+/**
+ * 3. Failing / retrying on purpose.
+ */
+
+// throw new Error('simulated failure');        // auto-retry (respects opts.attempts + backoff)
+// throw new UnrecoverableError('do not retry'); // fail permanently — no automatic retry
+
+// Manually move to failed (inside a processor, using the token param):
+// const processorWithToken = async (job: Job, token: string) => {
+//   await job.moveToFailed(new Error('manual failure'), token);
+// };
+
+/**
+ * 4. Worker options (alternate constructor).
+ */
+
+// const worker = new Worker(QUEUE_NAME, processor, {
+//   connection,
+//   concurrency: 5,                        // process up to 5 jobs in parallel
+//   limiter: { max: 10, duration: 1000 },  // at most 10 jobs/sec across all workers
+//   autorun: false,                        // don't start automatically (call worker.run())
+//   stalledInterval: 30000,                // how often to check for stalled jobs
+//   lockDuration: 30000,                   // lock held while processing; auto-renewed
+//   maxStalledCount: 1,                    // times a job may be flagged as stalled
+// });
+
+/**
+ * 5. Worker control at runtime.
+ */
+
+// await worker.run();          // start processing (required when autorun: false)
+// await worker.pause();        // stop picking up new jobs (active ones finish)
+// await worker.resume();       // NOTE: async in BullMQ v6 — must be awaited
+// worker.concurrency = 10;     // change concurrency at runtime
+// await worker.close();        // stop processing and close Redis connections
+
+/**
+ * 6. QueueEvents — global, queue-wide monitoring across ALL workers.
+ *    (Unlike worker.on(...), these see events from every producer/worker.)
+ */
+
+// import { QueueEvents } from 'bullmq';
+//
+// const events = new QueueEvents(QUEUE_NAME, { connection });
+// events.on('waiting', ({ jobId }) => console.log(`Global: job ${jobId} waiting`));
+// events.on('active', ({ jobId }) => console.log(`Global: job ${jobId} active`));
+// events.on('completed', ({ jobId, returnvalue }) => console.log(`Global: job ${jobId} completed`, returnvalue));
+// events.on('failed', ({ jobId, failedReason }) => console.error(`Global: job ${jobId} failed: ${failedReason}`));
+// await events.close();
