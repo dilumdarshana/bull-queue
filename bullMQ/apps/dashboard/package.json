@@ -11,8 +11,8 @@
     "build": "tsup --clean src/index.ts"
   },
   "dependencies": {
-    "@bull-board/api": "^8.3.0",
-    "@bull-board/express": "^8.3.0",
+    "@bull-board/api": "^9.10.1",
+    "@bull-board/express": "^9.10.1",
     "@bull/config": "workspace:*",
     "@bull/shared-types": "workspace:*",
     "express": "^5.2.1"
