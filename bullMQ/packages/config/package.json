@@ -10,9 +10,9 @@
     "build": "tsup --clean index.ts --dts"
   },
   "dependencies": {
-    "dotenv": "^17.4.2"
+    "dotenv": "^18.0.3"
   },
   "devDependencies": {
-    "@types/node": "^26.1.1"
+    "@types/node": "^26.6.2"
   }
 }
